@@ -1,11 +1,12 @@
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
+import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<div>Обзор</div>} />
+        <Route path="/" element={<DashboardPage />} />
         <Route path="/transactions" element={<div>Транзакции</div>} />
         <Route path="/categories" element={<div>Категории</div>} />
         <Route path="/budgets" element={<div>Бюджеты</div>} />
