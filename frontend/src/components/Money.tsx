@@ -7,7 +7,7 @@ interface MoneyProps {
 
 export default function Money({ amount, type = 'neutral' }: MoneyProps) {
   const color =
-    type === 'income' ? '#2D5F4C' : type === 'expense' ? '#B8452F' : 'inherit';
+    type === 'income' ? 'success.main' : type === 'expense' ? 'error.main' : 'inherit';
   const sign = type === 'income' ? '+' : type === 'expense' ? '−' : '';
 
   const formatted = new Intl.NumberFormat('ru-RU', {
