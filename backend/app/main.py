@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 
-from app.core.database import close_db, init_db
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.transactions import router as transactions_router
+from app.api.categories import router as categories_router
+from app.core.database import close_db, init_db
 
 
 @asynccontextmanager
@@ -21,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(transactions_router, prefix="/api/v1")
+app.include_router(categories_router, prefix="/api/v1")
 
 
 @app.get(
