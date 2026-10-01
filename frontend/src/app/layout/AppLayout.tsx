@@ -14,6 +14,9 @@ import ListItemText from '@mui/material/ListItemText';
 import MenuIcon from '@mui/icons-material/Menu';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useAuth } from '../../entities/user';
 import SpaceDashboardOutlinedIcon from '@mui/icons-material/SpaceDashboardOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
@@ -33,6 +36,7 @@ const drawerWidth = 240;
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -68,6 +72,15 @@ export default function AppLayout() {
           </ListItem>
         ))}
       </List>
+      <Divider />
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary" noWrap title={user?.email}>
+          {user?.email}
+        </Typography>
+        <Button startIcon={<LogoutIcon />} onClick={logout} size="small" sx={{ mt: 1 }}>
+          Выйти
+        </Button>
+      </Box>
     </div>
   );
 
