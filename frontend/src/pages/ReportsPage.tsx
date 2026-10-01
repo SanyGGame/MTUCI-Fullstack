@@ -3,11 +3,13 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import type { Category } from '../entities/category';
 import type { Transaction } from '../entities/transaction';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { findCategory, useFinance } from '../entities/finance';
 import { CURRENT_MONTH_LABEL } from '../shared/config';
+import { formatRub } from '../shared/lib/format';
 import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
 import PageHeader from '../shared/ui/PageHeader';
@@ -87,22 +89,32 @@ export default function ReportsPage() {
           {months.map((m) => (
             <Box key={m.month} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 190 }}>
-                <Box
-                  sx={{
-                    width: 18,
-                    height: `${(m.income / maxValue) * 100}%`,
-                    bgcolor: '#2D5F4C',
-                    borderRadius: '3px 3px 0 0',
-                  }}
-                />
-                <Box
-                  sx={{
-                    width: 18,
-                    height: `${(m.expense / maxValue) * 100}%`,
-                    bgcolor: '#B8452F',
-                    borderRadius: '3px 3px 0 0',
-                  }}
-                />
+                <Tooltip title={`${m.label}, доходы: ${formatRub(m.income)}`} arrow placement="top">
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: `${(m.income / maxValue) * 100}%`,
+                      minHeight: 2,
+                      bgcolor: '#2D5F4C',
+                      borderRadius: '3px 3px 0 0',
+                      transition: 'opacity 0.15s',
+                      '&:hover': { opacity: 0.75 },
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip title={`${m.label}, расходы: ${formatRub(m.expense)}`} arrow placement="top">
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: `${(m.expense / maxValue) * 100}%`,
+                      minHeight: 2,
+                      bgcolor: '#B8452F',
+                      borderRadius: '3px 3px 0 0',
+                      transition: 'opacity 0.15s',
+                      '&:hover': { opacity: 0.75 },
+                    }}
+                  />
+                </Tooltip>
               </Box>
             </Box>
           ))}
