@@ -2,7 +2,9 @@ import datetime as dt
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from decimal import Decimal
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.category import Category, TransactionType
@@ -83,3 +85,29 @@ async def update_transaction(
 async def delete_transaction(db: AsyncSession, transaction: Transaction) -> None:
     await db.delete(transaction)
     await db.commit()
+
+
+async def get_monthly_summary(
+    db: AsyncSession, user_id: uuid.UUID, months: int
+) -> list[dict]:
+    year, month = dt.date.today().year, dt.date.today().month
+    keys: list[str] = []
+    for _ in range(months):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            year, month = year - 1, 12
+    keys.reverse()
+
+    month_col = func.to_char(Transaction.date, "YYYY-MM")
+    result = await db.execute(
+        select(month_col, Category.type, func.sum(Transaction.amount))
+        .join(Transaction.category)
+        .where(Category.user_id == user_id, month_col >= keys[0])
+        .group_by(month_col, Category.type)
+    )
+    totals = {k: {"month": k, "income": Decimal(0), "expense": Decimal(0)} for k in keys}
+    for key, type_, total in result.all():
+        if key in totals:
+            totals[key][type_.value] = Decimal(total)
+    return [totals[k] for k in keys]

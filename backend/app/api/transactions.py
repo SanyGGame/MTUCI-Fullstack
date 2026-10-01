@@ -5,10 +5,11 @@ from app.services.transaction_service import (
     create_transaction,
     delete_transaction,
     get_all_transactions,
+    get_monthly_summary,
     get_transaction_by_id,
     update_transaction,
 )
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -16,6 +17,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.category import TransactionType
 from app.schemas.transaction import (
+    MonthlySummary,
     TransactionCreate,
     TransactionResponse,
     TransactionUpdate,
@@ -50,6 +52,21 @@ async def list_transactions(
     user: User = Depends(get_current_user),
 ):
     return await get_all_transactions(db, user.id, type, category_id, date_from, date_to)
+
+
+@router.get(
+    "/summary",
+    status_code=status.HTTP_200_OK,
+    response_model=list[MonthlySummary],
+    summary="Сводка по месяцам",
+    description="Возвращает доходы и расходы за последние месяцы, включая текущий.",
+)
+async def summary(
+    months: int = Query(default=6, ge=1, le=24),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await get_monthly_summary(db, user.id, months)
 
 
 @router.post(

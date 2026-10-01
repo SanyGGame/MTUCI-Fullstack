@@ -36,3 +36,9 @@ class TransactionResponse(BaseModel):
     category: CategoryResponse
 
     model_config = {"from_attributes": True}
+
+
+class MonthlySummary(BaseModel):
+    month: str
+    income: Decimal
+    expense: Decimal
