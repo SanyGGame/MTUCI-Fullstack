@@ -1,2 +1,2 @@
 export type { Transaction, NewTransaction } from './model/types';
-export { fetchTransactions } from './api/mock';
+export { transactionApi } from './api/transactionApi';

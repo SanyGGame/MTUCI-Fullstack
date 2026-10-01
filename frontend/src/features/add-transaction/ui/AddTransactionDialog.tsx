@@ -1,3 +1,4 @@
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -11,6 +12,8 @@ import { CategoryDot, type TransactionType } from '../../../entities/category';
 import { useFinance } from '../../../entities/finance';
 import { defaultDate } from '../../../shared/config';
 import { useFormState } from '../../../shared/lib/useFormState';
+import { useSubmit } from '../../../shared/lib/useSubmit';
+import type { Transaction } from '../../../entities/transaction';
 import { hasErrors, parseMoney } from '../../../shared/lib/validation';
 import AppDialog from '../../../shared/ui/AppDialog';
 import { useNotify } from '../../../shared/ui/useNotify';
@@ -19,25 +22,27 @@ import { validateTransaction, type TransactionFormValues } from '../model/valida
 interface Props {
   open: boolean;
   onClose: () => void;
+  transaction?: Transaction;
 }
 
-export default function AddTransactionDialog({ open, onClose }: Props) {
+export default function AddTransactionDialog({ open, onClose, transaction }: Props) {
   return (
     <AppDialog open={open} onClose={onClose}>
-      <TransactionForm onClose={onClose} />
+      <TransactionForm onClose={onClose} transaction={transaction} />
     </AppDialog>
   );
 }
 
-function TransactionForm({ onClose }: { onClose: () => void }) {
-  const { categories, addTransaction } = useFinance();
+function TransactionForm({ onClose, transaction }: { onClose: () => void; transaction?: Transaction }) {
+  const { categories, addTransaction, updateTransaction } = useFinance();
   const notify = useNotify();
+  const { submitting, error: serverError, submit } = useSubmit();
   const { values, setValue, touch, markSubmitted, visibleError } = useFormState<TransactionFormValues>({
-    type: 'expense',
-    amount: '',
-    date: defaultDate(),
-    categoryId: '',
-    description: '',
+    type: transaction?.type ?? 'expense',
+    amount: transaction ? String(transaction.amount) : '',
+    date: transaction?.date ?? defaultDate(),
+    categoryId: transaction?.categoryId ?? '',
+    description: transaction?.description ?? '',
   });
 
   const errors = validateTransaction(values, categories);
@@ -49,25 +54,31 @@ function TransactionForm({ onClose }: { onClose: () => void }) {
     setValue('categoryId', '');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     markSubmitted();
     if (hasErrors(errors)) return;
-    addTransaction({
+    const payload = {
       date: values.date,
       amount: parseMoney(values.amount),
       categoryId: values.categoryId,
       description: values.description.trim(),
-    });
-    notify('Операция добавлена');
-    onClose();
+    };
+    const ok = await submit(() =>
+      transaction ? updateTransaction(transaction.id, payload) : addTransaction(payload),
+    );
+    if (ok) {
+      notify(transaction ? 'Операция обновлена' : 'Операция добавлена');
+      onClose();
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <DialogTitle>Новая операция</DialogTitle>
+      <DialogTitle>{transaction ? 'Редактирование операции' : 'Новая операция'}</DialogTitle>
       <DialogContent>
         <Stack spacing={1} sx={{ pt: 1 }}>
+          {serverError && <Alert severity="error">{serverError}</Alert>}
           <ToggleButtonGroup
             value={values.type}
             exclusive
@@ -131,8 +142,8 @@ function TransactionForm({ onClose }: { onClose: () => void }) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Отмена</Button>
-        <Button type="submit" variant="contained" disableElevation>
-          Добавить
+        <Button type="submit" variant="contained" disableElevation disabled={submitting}>
+          {transaction ? 'Сохранить' : 'Добавить'}
         </Button>
       </DialogActions>
     </form>

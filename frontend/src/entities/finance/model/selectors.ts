@@ -1,4 +1,3 @@
-import type { Budget, BudgetProgress } from '../../budget';
 import type { Category } from '../../category';
 import type { Transaction } from '../../transaction';
 
@@ -17,19 +16,6 @@ export function monthTotals(transactions: Transaction[], month: string) {
     else expense += t.amount;
   }
   return { income, expense, balance: income - expense };
-}
-
-export function budgetsWithSpent(
-  budgets: Budget[],
-  transactions: Transaction[],
-  month: string,
-): BudgetProgress[] {
-  return budgets.map((b) => ({
-    ...b,
-    spent: transactions
-      .filter((t) => t.type === 'expense' && t.categoryId === b.categoryId && t.date.startsWith(month))
-      .reduce((sum, t) => sum + t.amount, 0),
-  }));
 }
 
 export function sortByDateDesc(transactions: Transaction[]): Transaction[] {

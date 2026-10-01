@@ -1,3 +1,3 @@
 export type { Category, NewCategory, TransactionType } from './model/types';
-export { fetchCategories } from './api/mock';
+export { categoryApi } from './api/categoryApi';
 export { default as CategoryDot } from './ui/CategoryDot';

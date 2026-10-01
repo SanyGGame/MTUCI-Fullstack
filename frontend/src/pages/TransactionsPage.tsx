@@ -13,9 +13,12 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { alpha } from '@mui/material/styles';
 import type { TransactionType } from '../entities/category';
+import type { Transaction } from '../entities/transaction';
 import { findCategory, sortByDateDesc, useFinance } from '../entities/finance';
 import { AddTransactionDialog } from '../features/add-transaction';
 import { DeleteTransactionButton } from '../features/delete-transaction';
@@ -31,6 +34,7 @@ export default function TransactionsPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Transaction | undefined>();
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -42,7 +46,11 @@ export default function TransactionsPage() {
   }, [transactions, filter, query]);
 
   const addButton = (
-    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => setDialogOpen(true)}>
+    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => {
+        setEditing(undefined);
+        setDialogOpen(true);
+      }}
+    >
       Добавить операцию
     </Button>
   );
@@ -88,7 +96,7 @@ export default function TransactionsPage() {
                 <TableCell>Описание</TableCell>
                 <TableCell>Категория</TableCell>
                 <TableCell align="right">Сумма</TableCell>
-                <TableCell align="right" sx={{ width: 56 }} />
+                <TableCell align="right" sx={{ width: 96 }} />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -121,7 +129,17 @@ export default function TransactionsPage() {
                       <TableCell align="right">
                         <Money amount={t.amount} type={t.type} />
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        <IconButton
+                          size="small"
+                          aria-label="Изменить операцию"
+                          onClick={() => {
+                            setEditing(t);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
                         <DeleteTransactionButton transactionId={t.id} description={t.description} />
                       </TableCell>
                     </TableRow>
@@ -133,7 +151,7 @@ export default function TransactionsPage() {
         </TableContainer>
       </DataState>
 
-      <AddTransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <AddTransactionDialog open={dialogOpen} transaction={editing} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 }

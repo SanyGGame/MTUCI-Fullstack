@@ -15,14 +15,19 @@ function App() {
   return (
     <NotifyProvider>
       <AuthProvider>
-        <FinanceProvider>
           <Routes>
             <Route element={<GuestOnly />}>
               <Route path="/login" element={<AuthPage mode="login" />} />
               <Route path="/register" element={<AuthPage mode="register" />} />
             </Route>
             <Route element={<RequireAuth />}>
-              <Route element={<AppLayout />}>
+              <Route
+                element={
+                  <FinanceProvider>
+                    <AppLayout />
+                  </FinanceProvider>
+                }
+              >
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
@@ -31,7 +36,6 @@ function App() {
               </Route>
             </Route>
           </Routes>
-        </FinanceProvider>
       </AuthProvider>
     </NotifyProvider>
   );

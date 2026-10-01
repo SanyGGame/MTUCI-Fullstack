@@ -6,22 +6,30 @@ import Paper from '@mui/material/Paper';
 import Slide from '@mui/material/Slide';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import type { Budget } from '../entities/budget';
 import { CategoryDot } from '../entities/category';
-import { budgetsWithSpent, findCategory, useFinance } from '../entities/finance';
+import { findCategory, useFinance } from '../entities/finance';
 import { AddBudgetDialog } from '../features/add-budget';
-import { CURRENT_MONTH, CURRENT_MONTH_LABEL } from '../shared/config';
+import { DeleteBudgetButton } from '../features/delete-budget';
+import { CURRENT_MONTH_LABEL } from '../shared/config';
 import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
 import PageHeader from '../shared/ui/PageHeader';
 
 export default function BudgetsPage() {
-  const { status, error, reload, budgets, categories, transactions } = useFinance();
+  const { status, error, reload, budgets, categories } = useFinance();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const items = budgetsWithSpent(budgets, transactions, CURRENT_MONTH);
+  const [editing, setEditing] = useState<Budget | undefined>();
 
   const addButton = (
-    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => setDialogOpen(true)}>
+    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => {
+        setEditing(undefined);
+        setDialogOpen(true);
+      }}
+    >
       Новый бюджет
     </Button>
   );
@@ -40,7 +48,7 @@ export default function BudgetsPage() {
         emptyAction={addButton}
       >
         <Stack spacing={2}>
-          {items.map((b) => {
+          {budgets.map((b) => {
             const cat = findCategory(categories, b.categoryId);
             const pct = Math.min(100, Math.round((b.spent / b.monthlyLimit) * 100));
             const over = b.spent > b.monthlyLimit;
@@ -54,9 +62,22 @@ export default function BudgetsPage() {
                         {cat?.name}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" color={over ? 'error.main' : 'text.secondary'}>
-                      <Money amount={b.spent} /> из <Money amount={b.monthlyLimit} />
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography variant="body2" color={over ? 'error.main' : 'text.secondary'} sx={{ mr: 1 }}>
+                        <Money amount={b.spent} /> из <Money amount={b.monthlyLimit} />
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        aria-label="Изменить бюджет"
+                        onClick={() => {
+                          setEditing(b);
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <DeleteBudgetButton budgetId={b.id} name={cat?.name ?? ''} />
+                    </Box>
                   </Box>
                   <LinearProgress
                     variant="determinate"
@@ -84,7 +105,7 @@ export default function BudgetsPage() {
         </Stack>
       </DataState>
 
-      <AddBudgetDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <AddBudgetDialog open={dialogOpen} budget={editing} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 }

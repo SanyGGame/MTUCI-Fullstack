@@ -3,19 +3,44 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import type { Category } from '../entities/category';
+import type { Transaction } from '../entities/transaction';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { monthTotals, mockMonthlySummary, useFinance, type MonthlySummary } from '../entities/finance';
-import { CURRENT_MONTH } from '../shared/config';
+import { findCategory, useFinance } from '../entities/finance';
+import { CURRENT_MONTH_LABEL } from '../shared/config';
 import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
 import PageHeader from '../shared/ui/PageHeader';
 
-export default function ReportsPage() {
-  const { status, error, reload, transactions } = useFinance();
+function exportCsv(transactions: Transaction[], categories: Category[]) {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const rows = [
+    ['Дата', 'Тип', 'Категория', 'Сумма', 'Описание'],
+    ...transactions.map((t) => [
+      t.date,
+      t.type === 'income' ? 'Доход' : 'Расход',
+      findCategory(categories, t.categoryId)?.name ?? '',
+      String(t.amount),
+      t.description,
+    ]),
+  ];
+  const csv = '\uFEFF' + rows.map((r) => r.map(escape).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'transactions.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
-  const { income, expense } = monthTotals(transactions, CURRENT_MONTH);
-  const latest: MonthlySummary = { month: 'Сен', income, expense };
-  const months = [...mockMonthlySummary.slice(0, -1), latest];
+export default function ReportsPage() {
+  const { status, error, reload, transactions, categories, summary } = useFinance();
+
+  const months = summary.map((m) => ({
+    ...m,
+    label: new Date(`${m.month}-01`).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', ''),
+  }));
+  const latest = months[months.length - 1] ?? { income: 0, expense: 0 };
   const maxValue = Math.max(1, ...months.flatMap((m) => [m.income, m.expense]));
 
   return (
@@ -24,14 +49,14 @@ export default function ReportsPage() {
         title="Отчёты"
         subtitle="Динамика за последние 6 месяцев"
         action={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
-              Экспорт CSV
-            </Button>
-            <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
-              Экспорт PDF
-            </Button>
-          </Stack>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadOutlinedIcon />}
+            disabled={status !== 'ready' || transactions.length === 0}
+            onClick={() => exportCsv(transactions, categories)}
+          >
+            Экспорт CSV
+          </Button>
         }
       />
 
@@ -90,7 +115,7 @@ export default function ReportsPage() {
               color="text.secondary"
               sx={{ flex: 1, textAlign: 'center' }}
             >
-              {m.month}
+              {m.label}
             </Typography>
           ))}
         </Box>
@@ -98,7 +123,7 @@ export default function ReportsPage() {
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Сводка за сентябрь
+          Сводка: {CURRENT_MONTH_LABEL}
         </Typography>
         <Stack direction="row" spacing={4} sx={{ mt: 2 }}>
           <Box>

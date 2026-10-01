@@ -1,35 +1,48 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { LoadStatus } from '../../../shared/api/simulateRequest';
-import { newId } from '../../../shared/lib/id';
-import { fetchBudgets, type Budget } from '../../budget';
-import { fetchCategories, type Category } from '../../category';
-import { fetchTransactions, type Transaction } from '../../transaction';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { LoadStatus } from '../../../shared/api/status';
+import { budgetApi, type Budget } from '../../budget';
+import { categoryApi, type Category } from '../../category';
+import { transactionApi, type Transaction } from '../../transaction';
+import { summaryApi, type MonthlySummary } from '../api/summaryApi';
 import { FinanceContext, type FinanceContextValue } from './FinanceContext';
 
-// Демо-версия
+interface Snapshot {
+  categories: Category[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  summary: MonthlySummary[];
+}
+
+async function loadAll(): Promise<Snapshot> {
+  const [categories, transactions, budgets, summary] = await Promise.all([
+    categoryApi.list(),
+    transactionApi.list(),
+    budgetApi.list(),
+    summaryApi.list(),
+  ]);
+  return { categories, transactions, budgets, summary };
+}
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Неизвестная ошибка');
+
 export default function FinanceProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-
+  const [data, setData] = useState<Snapshot>({ categories: [], transactions: [], budgets: [], summary: [] });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchCategories(), fetchTransactions(), fetchBudgets()])
-      .then(([c, t, b]) => {
+    loadAll()
+      .then((snapshot) => {
         if (cancelled) return;
-        setCategories(c);
-        setTransactions(t);
-        setBudgets(b);
+        setData(snapshot);
         setError(null);
         setStatus('ready');
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : 'Неизвестная ошибка');
+        setError(errorText(e));
         setStatus('error');
       });
     return () => {
@@ -37,27 +50,36 @@ export default function FinanceProvider({ children }: { children: ReactNode }) {
     };
   }, [reloadKey]);
 
+  const mutate = useCallback(async (action: () => Promise<unknown>) => {
+    await action();
+    try {
+      setData(await loadAll());
+    } catch (e) {
+      setError(errorText(e));
+      setStatus('error');
+    }
+  }, []);
+
   const value = useMemo<FinanceContextValue>(
     () => ({
       status,
       error,
-      categories,
-      transactions,
-      budgets,
+      ...data,
       reload: () => {
         setStatus('loading');
         setReloadKey((k) => k + 1);
       },
-      addTransaction: (data) => {
-        const category = categories.find((c) => c.id === data.categoryId);
-        if (!category) return;
-        setTransactions((prev) => [...prev, { ...data, id: newId(), type: category.type }]);
-      },
-      deleteTransaction: (id) => setTransactions((prev) => prev.filter((t) => t.id !== id)),
-      addCategory: (data) => setCategories((prev) => [...prev, { ...data, id: newId() }]),
-      addBudget: (data) => setBudgets((prev) => [...prev, { ...data, id: newId() }]),
+      addTransaction: (d) => mutate(() => transactionApi.create(d)),
+      updateTransaction: (id, d) => mutate(() => transactionApi.update(id, d)),
+      deleteTransaction: (id) => mutate(() => transactionApi.remove(id)),
+      addCategory: (d) => mutate(() => categoryApi.create(d)),
+      updateCategory: (id, d) => mutate(() => categoryApi.update(id, d)),
+      deleteCategory: (id) => mutate(() => categoryApi.remove(id)),
+      addBudget: (d) => mutate(() => budgetApi.create(d)),
+      updateBudget: (id, limit) => mutate(() => budgetApi.update(id, limit)),
+      deleteBudget: (id) => mutate(() => budgetApi.remove(id)),
     }),
-    [status, error, categories, transactions, budgets],
+    [status, error, data, mutate],
   );
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;

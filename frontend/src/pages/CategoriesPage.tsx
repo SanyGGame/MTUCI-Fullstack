@@ -5,10 +5,13 @@ import Grid from '@mui/material/Grid';
 import Grow from '@mui/material/Grow';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { CategoryDot, type Category } from '../entities/category';
 import { sumByCategory, useFinance } from '../entities/finance';
 import { AddCategoryDialog } from '../features/add-category';
+import { DeleteCategoryButton } from '../features/delete-category';
 import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
 import PageHeader from '../shared/ui/PageHeader';
@@ -16,6 +19,7 @@ import PageHeader from '../shared/ui/PageHeader';
 export default function CategoriesPage() {
   const { status, error, reload, categories, transactions } = useFinance();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Category | undefined>();
 
   const renderGroup = (title: string, items: Category[]) => (
     <Box sx={{ mb: 5 }}>
@@ -34,9 +38,20 @@ export default function CategoriesPage() {
                 <Paper variant="outlined" sx={{ p: 2.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                     <CategoryDot color={cat.color} />
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500, flex: 1 }}>
                       {cat.name}
                     </Typography>
+                    <IconButton
+                      size="small"
+                      aria-label="Изменить категорию"
+                      onClick={() => {
+                        setEditing(cat);
+                        setDialogOpen(true);
+                      }}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <DeleteCategoryButton categoryId={cat.id} name={cat.name} />
                   </Box>
                   <Typography variant="body2" color="text.secondary">
                     Всего: <Money amount={sumByCategory(transactions, cat.id)} />
@@ -51,7 +66,11 @@ export default function CategoriesPage() {
   );
 
   const addButton = (
-    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => setDialogOpen(true)}>
+    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => {
+        setEditing(undefined);
+        setDialogOpen(true);
+      }}
+    >
       Новая категория
     </Button>
   );
@@ -73,7 +92,7 @@ export default function CategoriesPage() {
         {renderGroup('Расходы', categories.filter((c) => c.type === 'expense'))}
       </DataState>
 
-      <AddCategoryDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <AddCategoryDialog open={dialogOpen} category={editing} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 }
