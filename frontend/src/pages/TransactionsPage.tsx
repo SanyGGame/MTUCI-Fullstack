@@ -16,7 +16,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { alpha } from '@mui/material/styles';
 import { mockTransactions } from '../api/mockTransactions';
 import { getCategoryById } from '../api/mockCategories';
-import Money from '../components/Money';
+import Money from '../shared/ui/Money';
 import type { TransactionType } from '../types';
 
 type Filter = 'all' | TransactionType;

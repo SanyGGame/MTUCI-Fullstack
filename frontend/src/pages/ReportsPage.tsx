@@ -5,7 +5,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { mockMonthlySummary } from '../api/mockSummary';
-import Money from '../components/Money';
+import Money from '../shared/ui/Money';
 
 export default function ReportsPage() {
   const latest = mockMonthlySummary[mockMonthlySummary.length - 1];

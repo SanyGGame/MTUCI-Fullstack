@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import { mockTransactions, getRecentTransactions } from '../api/mockTransactions';
 import { getCategoryById } from '../api/mockCategories';
-import Money from '../components/Money';
+import Money from '../shared/ui/Money';
 
 function useMonthTotals() {
   const income = mockTransactions

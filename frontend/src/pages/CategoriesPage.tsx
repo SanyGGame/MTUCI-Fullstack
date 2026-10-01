@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import { mockCategories } from '../api/mockCategories';
 import { mockTransactions } from '../api/mockTransactions';
-import Money from '../components/Money';
+import Money from '../shared/ui/Money';
 
 function totalForCategory(categoryId: string): number {
   return mockTransactions

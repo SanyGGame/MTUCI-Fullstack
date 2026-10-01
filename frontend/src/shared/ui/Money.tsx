@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import { formatRub } from '../lib/format';
 
 interface MoneyProps {
   amount: number;
@@ -10,16 +11,10 @@ export default function Money({ amount, type = 'neutral' }: MoneyProps) {
     type === 'income' ? 'success.main' : type === 'expense' ? 'error.main' : 'inherit';
   const sign = type === 'income' ? '+' : type === 'expense' ? '−' : '';
 
-  const formatted = new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(Math.abs(amount));
-
   return (
     <Box component="span" sx={{ color }}>
       {sign}
-      {formatted}
+      {formatRub(Math.abs(amount))}
     </Box>
   );
 }
