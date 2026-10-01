@@ -1,109 +1,97 @@
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import Grow from '@mui/material/Grow';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Divider from '@mui/material/Divider';
-import { mockTransactions, getRecentTransactions } from '../api/mockTransactions';
-import { getCategoryById } from '../api/mockCategories';
+import Typography from '@mui/material/Typography';
+import { CategoryDot } from '../entities/category';
+import { findCategory, monthTotals, sortByDateDesc, useFinance } from '../entities/finance';
+import { CURRENT_MONTH, CURRENT_MONTH_LABEL } from '../shared/config';
+import { formatDate, formatRub } from '../shared/lib/format';
+import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
-
-function useMonthTotals() {
-  const income = mockTransactions
-    .filter((t) => t.type === 'income' && t.date.startsWith('2026-09'))
-    .reduce((sum, t) => sum + t.amount, 0);
-  const expense = mockTransactions
-    .filter((t) => t.type === 'expense' && t.date.startsWith('2026-09'))
-    .reduce((sum, t) => sum + t.amount, 0);
-  return { income, expense, balance: income - expense };
-}
+import PageHeader from '../shared/ui/PageHeader';
 
 export default function DashboardPage() {
-  const { income, expense, balance } = useMonthTotals();
-  const recent = getRecentTransactions(6);
+  const { status, error, reload, transactions, categories } = useFinance();
+  const { income, expense, balance } = monthTotals(transactions, CURRENT_MONTH);
+  const recent = sortByDateDesc(transactions).slice(0, 6);
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Обзор
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Сентябрь 2026
-      </Typography>
+      <PageHeader title="Обзор" subtitle={CURRENT_MONTH_LABEL} />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 5 }}>
-        <Paper variant="outlined" sx={{ p: 3, flex: 1 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Доходы за месяц
-          </Typography>
-          <Typography variant="h4">
-            <Money amount={income} type="income" />
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ p: 3, flex: 1 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Расходы за месяц
-          </Typography>
-          <Typography variant="h4">
-            <Money amount={expense} type="expense" />
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ p: 3, flex: 1, bgcolor: 'primary.main' }}>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)' }} gutterBottom>
-            Баланс
-          </Typography>
-          <Typography variant="h4" sx={{ color: '#fff'}}>
-            {new Intl.NumberFormat('ru-RU', {
-              style: 'currency',
-              currency: 'RUB',
-              maximumFractionDigits: 0,
-            }).format(balance)}
-          </Typography>
-        </Paper>
-      </Stack>
-
-      <Typography variant="h6" gutterBottom>
-        Последние операции
-      </Typography>
-      <Paper variant="outlined">
-        <Stack divider={<Divider />}>
-          {recent.map((t) => {
-            const cat = getCategoryById(t.categoryId);
-            return (
-              <Box
-                key={t.id}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  px: 3,
-                  py: 2,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: cat?.color ?? '#8A8577',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Box>
-                    <Typography variant="body1">{t.description}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {cat?.name} · {new Date(t.date).toLocaleDateString('ru-RU')}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography variant="body1">
-                  <Money amount={t.amount} type={t.type} />
-                </Typography>
-              </Box>
-            );
-          })}
+      <DataState
+        status={status}
+        error={error}
+        onRetry={reload}
+        isEmpty={transactions.length === 0}
+        emptyTitle="Операций пока нет"
+        emptyHint="Добавьте первую операцию на вкладке «Транзакции»"
+      >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 5 }}>
+          <Grow in appear timeout={300}>
+            <Paper variant="outlined" sx={{ p: 3, flex: 1 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Доходы за месяц
+              </Typography>
+              <Typography variant="h4">
+                <Money amount={income} type="income" />
+              </Typography>
+            </Paper>
+          </Grow>
+          <Grow in appear timeout={500}>
+            <Paper variant="outlined" sx={{ p: 3, flex: 1 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Расходы за месяц
+              </Typography>
+              <Typography variant="h4">
+                <Money amount={expense} type="expense" />
+              </Typography>
+            </Paper>
+          </Grow>
+          <Grow in appear timeout={700}>
+            <Paper variant="outlined" sx={{ p: 3, flex: 1, bgcolor: 'primary.main' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)' }} gutterBottom>
+                Баланс
+              </Typography>
+              <Typography variant="h4" sx={{ color: '#fff' }}>
+                {formatRub(balance)}
+              </Typography>
+            </Paper>
+          </Grow>
         </Stack>
-      </Paper>
+
+        <Typography variant="h6" gutterBottom>
+          Последние операции
+        </Typography>
+        <Paper variant="outlined">
+          <Stack divider={<Divider />}>
+            {recent.map((t) => {
+              const cat = findCategory(categories, t.categoryId);
+              return (
+                <Box
+                  key={t.id}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2 }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CategoryDot color={cat?.color} size={8} />
+                    <Box>
+                      <Typography variant="body1">{t.description || cat?.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {cat?.name} · {formatDate(t.date)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Typography variant="body1">
+                    <Money amount={t.amount} type={t.type} />
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Paper>
+      </DataState>
     </Box>
   );
 }

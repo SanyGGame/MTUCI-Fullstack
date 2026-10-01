@@ -1,119 +1,139 @@
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
-import TableContainer from '@mui/material/TableContainer';
+import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
 import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Chip from '@mui/material/Chip';
-import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import { alpha } from '@mui/material/styles';
-import { mockTransactions } from '../api/mockTransactions';
-import { getCategoryById } from '../api/mockCategories';
+import type { TransactionType } from '../entities/category';
+import { findCategory, sortByDateDesc, useFinance } from '../entities/finance';
+import { AddTransactionDialog } from '../features/add-transaction';
+import { DeleteTransactionButton } from '../features/delete-transaction';
+import { formatDate } from '../shared/lib/format';
+import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
-import type { TransactionType } from '../types';
+import PageHeader from '../shared/ui/PageHeader';
 
 type Filter = 'all' | TransactionType;
 
 export default function TransactionsPage() {
+  const { status, error, reload, transactions, categories } = useFinance();
   const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const rows = useMemo(() => {
-    const sorted = [...mockTransactions].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    const q = query.trim().toLowerCase();
+    return sortByDateDesc(transactions).filter(
+      (t) =>
+        (filter === 'all' || t.type === filter) &&
+        (!q || t.description.toLowerCase().includes(q)),
     );
-    if (filter === 'all') return sorted;
-    return sorted.filter((t) => t.type === filter);
-  }, [filter]);
+  }, [transactions, filter, query]);
+
+  const addButton = (
+    <Button variant="contained" startIcon={<AddIcon />} disableElevation onClick={() => setDialogOpen(true)}>
+      Добавить операцию
+    </Button>
+  );
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 4,
-        }}
-      >
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Транзакции
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {rows.length} операций
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} disableElevation>
-          Добавить операцию
-        </Button>
-      </Box>
+      <PageHeader title="Транзакции" subtitle={`${rows.length} операций`} action={addButton} />
 
-      <ToggleButtonGroup
-        value={filter}
-        exclusive
-        onChange={(_, value) => value && setFilter(value)}
-        size="small"
-        sx={{ mb: 3 }}
+      <DataState
+        status={status}
+        error={error}
+        onRetry={reload}
+        isEmpty={transactions.length === 0}
+        emptyTitle="Операций пока нет"
+        emptyHint="Добавьте первый доход или расход"
+        emptyAction={addButton}
       >
-        <ToggleButton value="all">Все</ToggleButton>
-        <ToggleButton value="income">Доходы</ToggleButton>
-        <ToggleButton value="expense">Расходы</ToggleButton>
-      </ToggleButtonGroup>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
+          <ToggleButtonGroup
+            value={filter}
+            exclusive
+            onChange={(_, value: Filter | null) => value && setFilter(value)}
+            size="small"
+          >
+            <ToggleButton value="all">Все</ToggleButton>
+            <ToggleButton value="income">Доходы</ToggleButton>
+            <ToggleButton value="expense">Расходы</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            size="small"
+            placeholder="Поиск по описанию"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            sx={{ minWidth: 240 }}
+          />
+        </Stack>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table sx={{ minWidth: 600 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Дата</TableCell>
-              <TableCell>Описание</TableCell>
-              <TableCell>Категория</TableCell>
-              <TableCell align="right">Сумма</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.length === 0 ? (
+        <TableContainer component={Paper} variant="outlined">
+          <Table sx={{ minWidth: 600 }}>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                  Транзакций не найдено
-                </TableCell>
+                <TableCell>Дата</TableCell>
+                <TableCell>Описание</TableCell>
+                <TableCell>Категория</TableCell>
+                <TableCell align="right">Сумма</TableCell>
+                <TableCell align="right" sx={{ width: 56 }} />
               </TableRow>
-            ) : (
-              rows.map((t) => {
-                const cat = getCategoryById(t.categoryId);
-                return (
-                  <TableRow key={t.id} hover>
-                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                      {new Date(t.date).toLocaleDateString('ru-RU')}
-                    </TableCell>
-                    <TableCell>{t.description}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={cat?.name}
-                        size="small"
-                        sx={{
-                          bgcolor: cat?.color ? alpha(cat.color, 0.1) : 'action.hover',
-                          color: cat?.color,
-                          fontWeight: 500,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Money amount={t.amount} type={t.type} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    Ничего не найдено. Измените фильтр или поисковый запрос.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((t) => {
+                  const cat = findCategory(categories, t.categoryId);
+                  return (
+                    <TableRow key={t.id} hover>
+                      <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                        {formatDate(t.date)}
+                      </TableCell>
+                      <TableCell>{t.description}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={cat?.name}
+                          size="small"
+                          sx={{
+                            bgcolor: cat?.color ? alpha(cat.color, 0.1) : 'action.hover',
+                            color: cat?.color,
+                            fontWeight: 500,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Money amount={t.amount} type={t.type} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <DeleteTransactionButton transactionId={t.id} description={t.description} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </DataState>
+
+      <AddTransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 }

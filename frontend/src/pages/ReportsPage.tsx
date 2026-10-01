@@ -4,41 +4,38 @@ import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { mockMonthlySummary } from '../api/mockSummary';
+import { monthTotals, mockMonthlySummary, useFinance, type MonthlySummary } from '../entities/finance';
+import { CURRENT_MONTH } from '../shared/config';
+import DataState from '../shared/ui/DataState';
 import Money from '../shared/ui/Money';
+import PageHeader from '../shared/ui/PageHeader';
 
 export default function ReportsPage() {
-  const latest = mockMonthlySummary[mockMonthlySummary.length - 1];
-  const maxValue = Math.max(...mockMonthlySummary.flatMap((m) => [m.income, m.expense]));
+  const { status, error, reload, transactions } = useFinance();
+
+  const { income, expense } = monthTotals(transactions, CURRENT_MONTH);
+  const latest: MonthlySummary = { month: 'Сен', income, expense };
+  const months = [...mockMonthlySummary.slice(0, -1), latest];
+  const maxValue = Math.max(1, ...months.flatMap((m) => [m.income, m.expense]));
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 4,
-        }}
-      >
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Отчёты
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Динамика за последние 6 месяцев
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
-            Экспорт CSV
-          </Button>
-          <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
-            Экспорт PDF
-          </Button>
-        </Stack>
-      </Box>
+      <PageHeader
+        title="Отчёты"
+        subtitle="Динамика за последние 6 месяцев"
+        action={
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
+              Экспорт CSV
+            </Button>
+            <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />}>
+              Экспорт PDF
+            </Button>
+          </Stack>
+        }
+      />
 
+      <DataState status={status} error={error} onRetry={reload}>
       <Paper variant="outlined" sx={{ p: 4, mb: 4 }}>
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#2D5F4C', mt: 0.3 }} />
@@ -62,7 +59,7 @@ export default function ReportsPage() {
             pb: 0,
           }}
         >
-          {mockMonthlySummary.map((m) => (
+          {months.map((m) => (
             <Box key={m.month} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 190 }}>
                 <Box
@@ -86,7 +83,7 @@ export default function ReportsPage() {
           ))}
         </Box>
         <Box sx={{ display: 'flex', gap: 3, mt: 1 }}>
-          {mockMonthlySummary.map((m) => (
+          {months.map((m) => (
             <Typography
               key={m.month}
               variant="body2"
@@ -130,6 +127,7 @@ export default function ReportsPage() {
           </Box>
         </Stack>
       </Paper>
+      </DataState>
     </Box>
   );
 }
