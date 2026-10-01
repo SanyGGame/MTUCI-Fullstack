@@ -13,6 +13,7 @@ from app.core.security import (
     hash_refresh_token,
     verify_password,
 )
+from app.models.category import Category, TransactionType
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import TokenPair, UserCreate
@@ -24,6 +25,18 @@ def _unauthorized(detail: str) -> HTTPException:
         detail=detail,
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+DEFAULT_CATEGORIES = [
+    ("Зарплата", TransactionType.income, "#2D5F4C"),
+    ("Подработка", TransactionType.income, "#4C8069"),
+    ("Продукты", TransactionType.expense, "#B8452F"),
+    ("Транспорт", TransactionType.expense, "#C97B4A"),
+    ("Жильё", TransactionType.expense, "#9C3B2E"),
+    ("Развлечения", TransactionType.expense, "#D19A6A"),
+    ("Здоровье", TransactionType.expense, "#A65C4A"),
+    ("Прочее", TransactionType.expense, "#8A8577"),
+]
 
 
 async def register_user(db: AsyncSession, data: UserCreate) -> User:
@@ -39,6 +52,10 @@ async def register_user(db: AsyncSession, data: UserCreate) -> User:
     user = User(email=email, password_hash=hash_password(data.password))
     db.add(user)
     try:
+        await db.flush()
+        db.add_all(
+            Category(user_id=user.id, name=n, type=t, color=c) for n, t, c in DEFAULT_CATEGORIES
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()
