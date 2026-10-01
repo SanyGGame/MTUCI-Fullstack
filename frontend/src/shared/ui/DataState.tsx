@@ -5,7 +5,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Fade from '@mui/material/Fade';
 import Typography from '@mui/material/Typography';
-import type { LoadStatus } from '../api/simulateRequest';
+import type { LoadStatus } from '../api/status';
 
 interface DataStateProps {
   status: LoadStatus;
