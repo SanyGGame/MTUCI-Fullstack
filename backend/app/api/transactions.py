@@ -11,7 +11,9 @@ from app.services.transaction_service import (
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.models.user import User
 from app.models.category import TransactionType
 from app.schemas.transaction import (
     TransactionCreate,
@@ -22,8 +24,8 @@ from app.schemas.transaction import (
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-async def _get_or_404(db: AsyncSession, transaction_id: uuid.UUID):
-    transaction = await get_transaction_by_id(db, transaction_id)
+async def _get_or_404(db: AsyncSession, transaction_id: uuid.UUID, user: User):
+    transaction = await get_transaction_by_id(db, transaction_id, user.id)
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -45,8 +47,9 @@ async def list_transactions(
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    return await get_all_transactions(db, type, category_id, date_from, date_to)
+    return await get_all_transactions(db, user.id, type, category_id, date_from, date_to)
 
 
 @router.post(
@@ -57,8 +60,12 @@ async def list_transactions(
     description="Создаёт доход или расход в выбранной категории.",
     responses={404: {"description": "Категория не найдена."}},
 )
-async def create(body: TransactionCreate, db: AsyncSession = Depends(get_db)):
-    return await create_transaction(db, body)
+async def create(
+    body: TransactionCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await create_transaction(db, user.id, body)
 
 
 @router.get(
@@ -69,8 +76,12 @@ async def create(body: TransactionCreate, db: AsyncSession = Depends(get_db)):
     description="Возвращает операцию по её идентификатору.",
     responses={404: {"description": "Операция не найдена."}},
 )
-async def get_transaction(transaction_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    return await _get_or_404(db, transaction_id)
+async def get_transaction(
+    transaction_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_or_404(db, transaction_id, user)
 
 
 @router.patch(
@@ -85,9 +96,10 @@ async def update(
     transaction_id: uuid.UUID,
     body: TransactionUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    transaction = await _get_or_404(db, transaction_id)
-    return await update_transaction(db, transaction, body)
+    transaction = await _get_or_404(db, transaction_id, user)
+    return await update_transaction(db, user.id, transaction, body)
 
 
 @router.delete(
@@ -97,7 +109,11 @@ async def update(
     description="Удаляет операцию.",
     responses={404: {"description": "Операция не найдена."}},
 )
-async def delete(transaction_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    transaction = await _get_or_404(db, transaction_id)
+async def delete(
+    transaction_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    transaction = await _get_or_404(db, transaction_id, user)
     await delete_transaction(db, transaction)
     return {"id": transaction_id, "message": "Операция удалена"}

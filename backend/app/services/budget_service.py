@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.budget import Budget
-from app.models.category import TransactionType
+from app.models.category import Category, TransactionType
 from app.models.transaction import Transaction
 from app.schemas.budget import BudgetCreate, BudgetUpdate
 from app.services.category_service import get_category_by_id
@@ -29,8 +29,15 @@ async def _attach_spent(db: AsyncSession, budget: Budget) -> Budget:
     return budget
 
 
-async def get_all_budgets(db: AsyncSession, month: dt.date | None = None) -> list[Budget]:
-    query = select(Budget).order_by(Budget.month.desc(), Budget.id)
+async def get_all_budgets(
+    db: AsyncSession, user_id: uuid.UUID, month: dt.date | None = None
+) -> list[Budget]:
+    query = (
+        select(Budget)
+        .join(Budget.category)
+        .where(Category.user_id == user_id)
+        .order_by(Budget.month.desc(), Budget.id)
+    )
     if month:
         query = query.where(Budget.month == month.replace(day=1))
 
@@ -38,15 +45,17 @@ async def get_all_budgets(db: AsyncSession, month: dt.date | None = None) -> lis
     return [await _attach_spent(db, b) for b in result.scalars().all()]
 
 
-async def get_budget_by_id(db: AsyncSession, budget_id: uuid.UUID) -> Budget | None:
+async def get_budget_by_id(
+    db: AsyncSession, budget_id: uuid.UUID, user_id: uuid.UUID
+) -> Budget | None:
     budget = await db.get(Budget, budget_id)
-    if not budget:
+    if budget is None or budget.category.user_id != user_id:
         return None
     return await _attach_spent(db, budget)
 
 
-async def create_budget(db: AsyncSession, data: BudgetCreate) -> Budget:
-    category = await get_category_by_id(db, data.category_id)
+async def create_budget(db: AsyncSession, user_id: uuid.UUID, data: BudgetCreate) -> Budget:
+    category = await get_category_by_id(db, data.category_id, user_id)
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

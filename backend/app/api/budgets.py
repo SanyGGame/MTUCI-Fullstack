@@ -4,7 +4,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from app.services.budget_service import (
     create_budget,
@@ -17,8 +19,8 @@ from app.services.budget_service import (
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
 
-async def _get_or_404(db: AsyncSession, budget_id: uuid.UUID):
-    budget = await get_budget_by_id(db, budget_id)
+async def _get_or_404(db: AsyncSession, budget_id: uuid.UUID, user: User):
+    budget = await get_budget_by_id(db, budget_id, user.id)
     if not budget:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -35,9 +37,11 @@ async def _get_or_404(db: AsyncSession, budget_id: uuid.UUID):
     description="Возвращает бюджеты с расчётом потраченной суммы. Можно отфильтровать по месяцу.",
 )
 async def list_budgets(
-    month: dt.date | None = None, db: AsyncSession = Depends(get_db)
+    month: dt.date | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    return await get_all_budgets(db, month)
+    return await get_all_budgets(db, user.id, month)
 
 
 @router.post(
@@ -52,8 +56,12 @@ async def list_budgets(
         422: {"description": "Бюджет можно задать только для категории расходов."},
     },
 )
-async def create(body: BudgetCreate, db: AsyncSession = Depends(get_db)):
-    return await create_budget(db, body)
+async def create(
+    body: BudgetCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await create_budget(db, user.id, body)
 
 
 @router.get(
@@ -64,8 +72,12 @@ async def create(body: BudgetCreate, db: AsyncSession = Depends(get_db)):
     description="Возвращает бюджет по его идентификатору.",
     responses={404: {"description": "Бюджет не найден."}},
 )
-async def get_budget(budget_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    return await _get_or_404(db, budget_id)
+async def get_budget(
+    budget_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_or_404(db, budget_id, user)
 
 
 @router.patch(
@@ -77,9 +89,12 @@ async def get_budget(budget_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     responses={404: {"description": "Бюджет не найден."}},
 )
 async def update(
-    budget_id: uuid.UUID, body: BudgetUpdate, db: AsyncSession = Depends(get_db)
+    budget_id: uuid.UUID,
+    body: BudgetUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    budget = await _get_or_404(db, budget_id)
+    budget = await _get_or_404(db, budget_id, user)
     return await update_budget(db, budget, body)
 
 
@@ -90,7 +105,11 @@ async def update(
     description="Удаляет бюджет.",
     responses={404: {"description": "Бюджет не найден."}},
 )
-async def delete(budget_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    budget = await _get_or_404(db, budget_id)
+async def delete(
+    budget_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    budget = await _get_or_404(db, budget_id, user)
     await delete_budget(db, budget)
     return {"id": budget_id, "message": "Бюджет удалён"}

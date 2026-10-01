@@ -3,7 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.models.user import User
 from app.models.category import TransactionType
 from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 from app.services.category_service import (
@@ -17,8 +19,8 @@ from app.services.category_service import (
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
-async def _get_or_404(db: AsyncSession, category_id: uuid.UUID):
-    category = await get_category_by_id(db, category_id)
+async def _get_or_404(db: AsyncSession, category_id: uuid.UUID, user: User):
+    category = await get_category_by_id(db, category_id, user.id)
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -32,13 +34,14 @@ async def _get_or_404(db: AsyncSession, category_id: uuid.UUID):
     status_code=status.HTTP_200_OK,
     response_model=list[CategoryResponse],
     summary="Получить список категорий",
-    description="Возвращает все категории. Можно отфильтровать по типу: income или expense.",
+    description="Возвращает все категории.",
 )
 async def list_categories(
     type: TransactionType | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    return await get_all_categories(db, type)
+    return await get_all_categories(db, user.id, type)
 
 
 @router.post(
@@ -49,8 +52,12 @@ async def list_categories(
     description="Создаёт новую категорию доходов или расходов.",
     responses={409: {"description": "Такая категория уже существует."}},
 )
-async def create(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
-    return await create_category(db, body)
+async def create(
+    body: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await create_category(db, user.id, body)
 
 
 @router.get(
@@ -61,8 +68,12 @@ async def create(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
     description="Возвращает категорию по её идентификатору.",
     responses={404: {"description": "Категория не найдена."}},
 )
-async def get_category(category_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    return await _get_or_404(db, category_id)
+async def get_category(
+    category_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_or_404(db, category_id, user)
 
 
 @router.patch(
@@ -79,9 +90,12 @@ async def get_category(category_id: uuid.UUID, db: AsyncSession = Depends(get_db
     },
 )
 async def update(
-    category_id: uuid.UUID, body: CategoryUpdate, db: AsyncSession = Depends(get_db)
+    category_id: uuid.UUID,
+    body: CategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    category = await _get_or_404(db, category_id)
+    category = await _get_or_404(db, category_id, user)
     return await update_category(db, category, body)
 
 
@@ -95,7 +109,11 @@ async def update(
         409: {"description": "К категории привязаны операции."},
     },
 )
-async def delete(category_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    category = await _get_or_404(db, category_id)
+async def delete(
+    category_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    category = await _get_or_404(db, category_id, user)
     await delete_category(db, category)
     return {"id": category_id, "message": f"Категория '{category.name}' удалена"}

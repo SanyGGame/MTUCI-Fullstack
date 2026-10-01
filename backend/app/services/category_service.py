@@ -11,23 +11,34 @@ from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
 async def get_all_categories(
-    db: AsyncSession, type_: TransactionType | None = None
+    db: AsyncSession, user_id: uuid.UUID, type_: TransactionType | None = None
 ) -> list[Category]:
-    query = select(Category).order_by(Category.type, Category.name)
+    query = select(Category).where(Category.user_id == user_id).order_by(Category.type, Category.name)
     if type_:
         query = query.where(Category.type == type_)
     result = await db.execute(query)
     return list(result.scalars().all())
 
 
-async def get_category_by_id(db: AsyncSession, category_id: uuid.UUID) -> Category | None:
-    return await db.get(Category, category_id)
+async def get_category_by_id(
+    db: AsyncSession, category_id: uuid.UUID, user_id: uuid.UUID
+) -> Category | None:
+    category = await db.get(Category, category_id)
+    if category is None or category.user_id != user_id:
+        return None
+    return category
 
 
 async def _category_exists(
-    db: AsyncSession, name: str, type_: TransactionType, exclude_id: uuid.UUID | None = None
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    name: str,
+    type_: TransactionType,
+    exclude_id: uuid.UUID | None = None,
 ) -> bool:
-    query = select(Category.id).where(Category.name == name, Category.type == type_)
+    query = select(Category.id).where(
+        Category.user_id == user_id, Category.name == name, Category.type == type_
+    )
     if exclude_id:
         query = query.where(Category.id != exclude_id)
     result = await db.execute(query)
@@ -41,14 +52,16 @@ async def _count(db: AsyncSession, model, category_id: uuid.UUID) -> int:
     return result.scalar_one()
 
 
-async def create_category(db: AsyncSession, data: CategoryCreate) -> Category:
-    if await _category_exists(db, data.name, data.type):
+async def create_category(
+    db: AsyncSession, user_id: uuid.UUID, data: CategoryCreate
+) -> Category:
+    if await _category_exists(db, user_id, data.name, data.type):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Категория «{data.name}» ({data.type.value}) уже существует",
         )
 
-    category = Category(**data.model_dump())
+    category = Category(user_id=user_id, **data.model_dump())
     db.add(category)
     await db.commit()
     await db.refresh(category)
@@ -70,7 +83,7 @@ async def update_category(
             )
 
     if (new_name, new_type) != (category.name, category.type):
-        if await _category_exists(db, new_name, new_type, exclude_id=category.id):
+        if await _category_exists(db, category.user_id, new_name, new_type, exclude_id=category.id):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Категория «{new_name}» ({new_type.value}) уже существует",

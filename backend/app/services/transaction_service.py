@@ -11,8 +11,10 @@ from app.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.services.category_service import get_category_by_id
 
 
-async def _ensure_category_exists(db: AsyncSession, category_id: uuid.UUID) -> None:
-    if not await get_category_by_id(db, category_id):
+async def _ensure_category_exists(
+    db: AsyncSession, category_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    if not await get_category_by_id(db, category_id, user_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Категория {category_id} не найдена",
@@ -21,12 +23,13 @@ async def _ensure_category_exists(db: AsyncSession, category_id: uuid.UUID) -> N
 
 async def get_all_transactions(
     db: AsyncSession,
+    user_id: uuid.UUID,
     type_: TransactionType | None = None,
     category_id: uuid.UUID | None = None,
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
 ) -> list[Transaction]:
-    query = select(Transaction).join(Transaction.category)
+    query = select(Transaction).join(Transaction.category).where(Category.user_id == user_id)
 
     if type_:
         query = query.where(Category.type == type_)
@@ -42,13 +45,18 @@ async def get_all_transactions(
 
 
 async def get_transaction_by_id(
-    db: AsyncSession, transaction_id: uuid.UUID
+    db: AsyncSession, transaction_id: uuid.UUID, user_id: uuid.UUID
 ) -> Transaction | None:
-    return await db.get(Transaction, transaction_id)
+    transaction = await db.get(Transaction, transaction_id)
+    if transaction is None or transaction.category.user_id != user_id:
+        return None
+    return transaction
 
 
-async def create_transaction(db: AsyncSession, data: TransactionCreate) -> Transaction:
-    await _ensure_category_exists(db, data.category_id)
+async def create_transaction(
+    db: AsyncSession, user_id: uuid.UUID, data: TransactionCreate
+) -> Transaction:
+    await _ensure_category_exists(db, data.category_id, user_id)
 
     transaction = Transaction(**data.model_dump())
     db.add(transaction)
@@ -58,12 +66,12 @@ async def create_transaction(db: AsyncSession, data: TransactionCreate) -> Trans
 
 
 async def update_transaction(
-    db: AsyncSession, transaction: Transaction, data: TransactionUpdate
+    db: AsyncSession, user_id: uuid.UUID, transaction: Transaction, data: TransactionUpdate
 ) -> Transaction:
     changes = data.model_dump(exclude_none=True)
 
     if "category_id" in changes:
-        await _ensure_category_exists(db, changes["category_id"])
+        await _ensure_category_exists(db, changes["category_id"], user_id)
 
     for field, value in changes.items():
         setattr(transaction, field, value)
