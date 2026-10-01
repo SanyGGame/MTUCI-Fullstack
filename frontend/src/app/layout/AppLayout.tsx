@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
+import Fade from '@mui/material/Fade';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -31,6 +32,7 @@ const drawerWidth = 240;
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -129,7 +131,11 @@ export default function AppLayout() {
         }}
       >
         <Toolbar sx={{ display: { sm: 'none' } }} />
-        <Outlet />
+        <Fade key={pathname} in appear timeout={350}>
+          <Box>
+            <Outlet />
+          </Box>
+        </Fade>
       </Box>
     </Box>
   );
